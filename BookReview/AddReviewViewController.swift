@@ -13,18 +13,27 @@ protocol AddReviewViewControllerDelegate: class {
 }
 
 class AddReviewViewController: UIViewController {
-    let book: Book
-    var numOfStars = 0
+    private let book: Book
     weak var delegate: AddReviewViewControllerDelegate?
-    @IBOutlet weak var nameLabel: UILabel!
-    @IBOutlet weak var starReview: StarReviewView!
-    @IBOutlet weak var nameTextField: UITextField!
-    @IBOutlet weak var reviewTextView: UITextView!
+    private var viewModel: AddReviewViewModel = AddReviewViewModel(book: Book(name: "", author: "", image: .init()), doneCompletionHandler: {})
 
     init(book: Book) {
         self.book = book
         super.init(nibName: nil, bundle: nil)
         self.title = "Write Review"
+        let view = AddReviewView()
+        self.viewModel =  AddReviewViewModel(
+            book: book,
+            doneCompletionHandler: { [weak self] in
+                guard let self = self else { return }
+                let review = Review(rating: self.viewModel.starCount, review: self.viewModel.reviewText)
+                self.delegate?.reviewDidAdd(self, review: review)
+                self.navigationController?.popViewController(animated: true)
+            }
+        )
+        view.configure(with: viewModel)
+        self.view.addSubview(view)
+        view.pinToSuperviewConstraints()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -33,14 +42,11 @@ class AddReviewViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.nameLabel.text = book.name
-        self.reviewTextView.layer.borderColor = UIColor.black.cgColor
-        self.reviewTextView.layer.borderWidth = 1
-        self.starReview.delegate = self
         let cancelButton = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelPressed))
         self.navigationItem.leftBarButtonItem = cancelButton
         let doneButton = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(donePressed))
         self.navigationItem.rightBarButtonItem = doneButton
+        self.view.backgroundColor = .white
     }
 
     @objc func cancelPressed() {
@@ -48,18 +54,6 @@ class AddReviewViewController: UIViewController {
     }
 
     @objc func donePressed() {
-        let review = Review(rating: self.numOfStars, review: self.reviewTextView.text)
-        self.reviewTextView.resignFirstResponder()
-        self.nameTextField.resignFirstResponder()
-        self.delegate?.reviewDidAdd(self, review: review)
-        self.navigationController?.popViewController(animated: true)
-    }
-}
-
-extension AddReviewViewController: StarReviewDelegate {
-    func reviewStarsDidGetPanned(_ starReviewView: StarReviewView, numOfStars: Int) {
-        self.reviewTextView.resignFirstResponder()
-        self.nameTextField.resignFirstResponder()
-        self.numOfStars = numOfStars
+        self.viewModel.didPressDone = true
     }
 }

@@ -9,52 +9,45 @@
 import UIKit
 
 class BookListViewController: UIViewController {
-    @IBOutlet weak var bookTableView: UITableView!
-    var books: [Book] = []
-    var selected: Int = 0
+
+    private var selectedIndexPathRow: Int = 0
+    private var selectedBookCompletionHandler: (Int) -> Void = { _ in }
+    private var viewModel: BookListTableViewModel = BookListTableViewModel(books: [], selectedBookCompletionHandler: { _ in })
+
+    init(books: [Book] = MockData.mockBooks) {
+        super.init(nibName: nil, bundle: nil)
+        self.selectedBookCompletionHandler = { [weak self] indexPathRow in
+            guard let self = self else { return }
+            let vc = BookDetailViewController(book: self.viewModel.books[indexPathRow])
+            vc.delegate = self
+            self.navigationController?.pushViewController(vc, animated: true)
+            self.selectedIndexPathRow = indexPathRow
+        }
+        self.viewModel = BookListTableViewModel(books: books, selectedBookCompletionHandler: selectedBookCompletionHandler)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         self.title = "List of Books"
-        self.view.backgroundColor = UIColor.white
-        self.books = [Book(name: "7 Habits of Highly Effective People", author: "Stephen R. Covey", image: #imageLiteral(resourceName: "highly-effective")),
-                      Book(name: "Grit", author: "Angela Duckworth", image: #imageLiteral(resourceName: "grit")),
-                      Book(name: "The Upstarts", author: "Brad Stone", image: #imageLiteral(resourceName: "upstarts")),
-                      Book(name: "Elon Musk", author: "Ashlee Vance", image: #imageLiteral(resourceName: "elon")),
-                      Book(name: "Shoe Dog", author: "Phil Knight", image: #imageLiteral(resourceName: "shoe-dog"))]
-        let nib = UINib(nibName: "BookCell", bundle: nil)
-        self.bookTableView.register(nib, forCellReuseIdentifier: "habitat")
-        self.bookTableView.dataSource = self
-        self.bookTableView.delegate = self
-        }
-}
-
-extension BookListViewController: UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return self.books.count
     }
 
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = self.bookTableView.dequeueReusableCell(withIdentifier: "habitat") as! BookCell
-        cell.configure(with: books[indexPath.row])
-        return cell
-    }
-}
-
-extension BookListViewController: UITableViewDelegate {
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let bDVC = BookDetailViewController(book: books[indexPath.row])
-        selected = indexPath.row
-        bDVC.delegate = self
-        self.navigationController?.pushViewController(bDVC, animated: true)
+    override func viewDidAppear(_ animated: Bool) {
+        _ = self.view.subviews.map { $0.removeFromSuperview() }
+        self.view.backgroundColor = .white
+        let bookListView = BookListTableView()
+        bookListView.configure(with: viewModel)
+        self.view.addSubview(bookListView)
+        bookListView.pinToSuperviewConstraints()
     }
 }
 
 extension BookListViewController: BookDetailViewControllerDelegate {
     func reviewsDidUpdate(_ BookDetailViewController: BookDetailViewController, reviews: [Review]) {
-        self.books[selected].reviews = reviews
-        self.bookTableView.reloadData()
+        viewModel.books[selectedIndexPathRow].reviews = reviews
     }
 
 }
-

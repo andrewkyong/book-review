@@ -8,7 +8,9 @@
 
 import Foundation
 
-class Review {
+class Review: ViewModel {
+    typealias ConfigurableView = ReviewTableViewCell
+
     let rating: Int
     let review: String
 

@@ -13,66 +13,43 @@ protocol BookDetailViewControllerDelegate: class {
 }
 
 class BookDetailViewController: UIViewController {
-    @IBOutlet weak var addReviewButton: UIButton!
-    @IBOutlet weak var bookImage: UIImageView!
-    @IBOutlet weak var bookAuthor: UILabel!
-    @IBOutlet weak var bookName: UILabel!
-    @IBOutlet weak var reviewTableView: UITableView!
+
     weak var delegate: BookDetailViewControllerDelegate?
-    var reviews = [Review(rating: 5, review: "It was good"), Review(rating: 1, review: "It sucked")]
     let book: Book
+
+    private var didTapAddReviewButtonCompletionHandler: () -> Void = {}
+    private var viewModel: BookDetailsTableViewModel = BookDetailsTableViewModel(book: Book(name: "", author: "", image: .checkmark), didTapAddReviewCompletionHandler: {})
 
     init(book: Book) {
         self.book = book
         super.init(nibName: nil, bundle: nil)
         self.title = book.name
-        book.reviews = self.reviews
+        self.didTapAddReviewButtonCompletionHandler = { [weak self] in
+            guard let self = self else { return }
+            let vc = AddReviewViewController(book: book)
+            vc.delegate = self
+            self.navigationController?.pushViewController(vc, animated: true)
+        }
+        self.viewModel = BookDetailsTableViewModel(book: book, didTapAddReviewCompletionHandler: didTapAddReviewButtonCompletionHandler)
     }
 
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        self.bookAuthor.text = "by \(book.author)"
-        self.bookName.text = book.name
-        self.bookImage.image = book.image
-        self.addReviewButton.layer.borderColor = UIColor.black.cgColor
-        self.addReviewButton.layer.borderWidth = 1
-        self.addReviewButton.layer.cornerRadius = 3
-        self.reviewTableView.dataSource = self
-        self.reviewTableView.tableFooterView = UIView()
-        self.addReviewButton.addTarget(self, action: #selector(addReviewButtonPressed), for: .touchUpInside)
-        self.delegate?.reviewsDidUpdate(self, reviews: reviews)
-        let nib = UINib(nibName: "ReviewCell", bundle: nil)
-        self.reviewTableView.register(nib, forCellReuseIdentifier: "reuse")
-    }
-
-    @objc func addReviewButtonPressed() {
-        let aRVC = AddReviewViewController(book: book)
-        aRVC.delegate = self
-        self.navigationController?.pushViewController(aRVC, animated: true)
-    }
-}
-
-extension BookDetailViewController: UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return self.reviews.count
-    }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = self.reviewTableView.dequeueReusableCell(withIdentifier: "reuse") as! ReviewCell
-        cell.selectionStyle = .none
-        cell.configure(with: reviews[indexPath.row])
-        return cell
+    override func viewDidAppear(_ animated: Bool) {
+        _ = self.view.subviews.map { $0.removeFromSuperview() }
+        self.view.backgroundColor = .white
+        let view = BookDetailsTableView()
+        view.configure(with: viewModel)
+        self.view.addSubview(view)
+        view.pinToSuperviewConstraints()
     }
 }
 
 extension BookDetailViewController: AddReviewViewControllerDelegate {
     func reviewDidAdd(_ addReviewViewController: AddReviewViewController, review: Review) {
-        reviews.append(review)
-        self.reviewTableView.reloadData()
-        self.delegate?.reviewsDidUpdate(self, reviews: reviews)
+        self.viewModel.reviews.append(review)
+        self.delegate?.reviewsDidUpdate(self, reviews: viewModel.reviews)
     }
 }
